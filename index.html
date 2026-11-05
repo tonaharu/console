@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Console</title>
+    <style>
+        :root {
+            --bg-color: #0a0d14;
+            --panel-bg: rgba(255, 255, 255, 0.03);
+            --panel-border: rgba(255, 255, 255, 0.15);
+            --text-main: #f0f3f8;
+            --text-muted: #8a99ad;
+            
+            /* パステルカラーの見出し・アクセント */
+            --pastel-blue: #a3c4f3;
+            --pastel-purple: #c1bbf0;
+            --pastel-pink: #f4beed;
+            --pastel-green: #bbf0da;
+            --pastel-orange: #f3cda3;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            overflow: hidden;
+            gap: 15px;
+        }
+
+        /* 共通パネルスタイル */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(4px);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 6px;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        /* 上段: ステータス */
+        .top-section {
+            flex: 0 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        .top-section .panel-title { color: var(--pastel-blue); }
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #ffffff;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+        }
+
+        /* 中段: ログ（メインエリア） */
+        .middle-section {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            min-height: 0;
+        }
+        
+        .defend-box .panel-title { color: var(--pastel-green); }
+        .attack-box .panel-title { color: var(--pastel-pink); }
+
+        .log-area {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            padding-right: 5px;
+        }
+        .log-area::-webkit-scrollbar { width: 4px; }
+        .log-area::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+
+        .log-row {
+            margin-bottom: 4px;
+            word-break: break-all;
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 下段: ゲージ */
+        .bottom-section {
+            flex: 0 0 auto;
+        }
+        .bottom-section .panel-title { color: var(--pastel-purple); }
+        .progress-container {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: 20px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+            position: relative;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--pastel-blue), var(--pastel-purple));
+            transition: width 0.4s ease;
+            box-shadow: 0 0 10px rgba(193, 187, 240, 0.5);
+        }
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #fff;
+            mix-blend-mode: difference;
+        }
+
+        /* ボタンとポップアップ */
+        .action-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: var(--text-main);
+            padding: 3px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #ffffff;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .popup {
+            background: #141923;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 25px;
+            border-radius: 8px;
+            width: 320px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .popup h3 {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: var(--pastel-orange);
+        }
+        .popup input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+        .popup input:focus {
+            outline: none;
+            border-color: var(--pastel-blue);
+        }
+        .popup-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 上段: ネットワークステータス -->
+    <div class="top-section">
+        <div class="panel">
+            <div class="panel-title">Remote Console</div>
+            <div class="stat-value" style="font-size: 1.1rem; color: var(--text-muted); margin-top:8px;">SYS_STATUS: ACTIVE</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">TERMINAL SPEED</div>
+            <div class="stat-value" id="term-speed">742.5 Mbps</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">SERVER SPEED</div>
+            <div class="stat-value" id="srv-speed">9.4 Gbps</div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">NETWORK PING</div>
+            <div class="stat-value" id="ping-val">12 ms</div>
+        </div>
+    </div>
+
+    <!-- 中段: ログエリア -->
+    <div class="middle-section">
+        <!-- 左: 防御ログ -->
+        <div class="panel defend-box">
+            <div class="panel-header">
+                <div class="panel-title">DEFENSE LOG</div>
+                <button class="action-btn" onclick="openPopup('defense')">BLOCK IP</button>
+            </div>
+            <div class="log-area" id="defend-log"></div>
+        </div>
+        <!-- 右: 攻撃ログ -->
+        <div class="panel attack-box">
+            <div class="panel-header">
+                <div class="panel-title">ATTACK LOG</div>
+                <button class="action-btn" onclick="openPopup('attack')">LAUNCH</button>
+            </div>
+            <div class="log-area" id="attack-log"></div>
+        </div>
+    </div>
+
+    <!-- 下段: 進行ゲージ -->
+    <div class="panel bottom-section">
+        <div class="panel-title">TASK COMPLETION GAUGE</div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+            <div class="progress-text" id="progress-text">0%</div>
+        </div>
+    </div>
+
+    <!-- ポップアップ -->
+    <div class="overlay" id="popup-overlay" onclick="closePopup(event)">
+        <div class="popup" onclick="event.stopPropagation()">
+            <h3 id="popup-title">TARGET CONFIG</h3>
+            <input type="text" id="popup-input" placeholder="192.168.1.1 or target.com">
+            <div class="popup-buttons">
+                <button class="action-btn" onclick="closePopup()">CANCEL</button>
+                <button class="action-btn" id="popup-submit-btn" style="border-color: var(--pastel-orange);" onclick="submitAction()">EXECUTE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateRandomIP() {
+            return `${Math.floor(Math.random() * 223) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+        }
+
+        function getTimeStamp() {
+            const now = new Date();
+            return `[${now.toTimeString().split(' ')}]`;
+        }
+
+        function addLog(elementId, text, color = '') {
+            const logArea = document.getElementById(elementId);
+            const row = document.createElement('div');
+            row.className = 'log-row';
+            if (color) row.style.color = color;
+            row.textContent = `${getTimeStamp()} ${text}`;
+            logArea.appendChild(row);
+            logArea.scrollTop = logArea.scrollHeight;
+
+            if (logArea.childNodes.length > 50) {
+                logArea.removeChild(logArea.firstChild);
+            }
+        }
+
+        function updateNetworkStats() {
+            const termSpeed = (Math.random() * (800 - 600) + 600).toFixed(1);
+            const srvSpeed = (Math.random() * (9.9 - 8.5) + 8.5).toFixed(1);
+            const ping = Math.floor(Math.random() * (18 - 8) + 8);
+
+            document.getElementById('term-speed').textContent = `${termSpeed} Mbps`;
+            document.getElementById('srv-speed').textContent = `${srvSpeed} Gbps`;
+            document.getElementById('ping-val').textContent = `${ping} ms`;
+        }
+        setInterval(updateNetworkStats, 20000);
+updateNetworkStats();
+function loopAttackLog() {
+const ip = generateRandomIP();
+const events = [
+{ text: 攻撃中 >> target_ip: ${ip}..., color: '' },
+{ text: 攻撃先検知完了 >> target_ip: ${ip}, color: 'var(--pastel-blue)' },
+{ text: 攻撃完了 >> target_ip: ${ip} [SUCCESS], color: 'var(--pastel-purple)' }
+];
+const randomEvent = events[Math.floor(Math.random() * events.length)];
+addLog('attack-log', randomEvent.text, randomEvent.color);
+setTimeout(loopAttackLog, Math.random() * 2000 + 800);
+}
+function loopDefendLog() {
+const ip = generateRandomIP();
+const events = [
+{ text: 攻撃を検知 !! source_ip: ${ip}, color: 'var(--pastel-orange)' },
+{ text: 防御中 // blocking_source: ${ip}..., color: '' },
+{ text: 防御完了 // secure_ip: ${ip} [BLOCKED], color: 'var(--pastel-green)' }
+];
+const randomEvent = events[Math.floor(Math.random() * events.length)];
+addLog('defend-log', randomEvent.text, randomEvent.color);
+setTimeout(loopDefendLog, Math.random() * 2500 + 1000);
+}
+setTimeout(loopAttackLog, 500);
+setTimeout(loopDefendLog, 800);
+let progress = 0;
+function updateProgressBar() {
+progress += Math.floor(Math.random() * 5) + 2;
+if (progress > 100) {
+progress = 0;
+addLog('attack-log', "システムタスク再起動... シーケンスをリフレッシュしました。", 'var(--text-muted)');
+}
+document.getElementById('progress-bar').style.width = ${progress}%;
+document.getElementById('progress-text').textContent = ${progress}%;
+setTimeout(updateProgressBar, Math.random() * 600 + 200);
+}
+updateProgressBar();
+let currentMode = 'attack';
+function openPopup(mode) {
+currentMode = mode;
+const overlay = document.getElementById('popup-overlay');
+const title = document.getElementById('popup-title');
+const input = document.getElementById('popup-input');
+input.value = '';
+if (mode === 'attack') {
+title.textContent = 'LAUNCH EXPLOIT TARGET';
+input.placeholder = 'IPアドレスまたはURLを入力...';
+} else {
+title.textContent = 'FIREWALL BLOCK ROUTE';
+input.placeholder = 'ブロックするIPまたはURLを入力...';
+}
+overlay.style.display = 'flex';
+input.focus();
+}
+function closePopup(e) {
+document.getElementById('popup-overlay').style.display = 'none';
+}
+function submitAction() {
+const target = document.getElementById('popup-input').value.trim();
+if (!target) return alert('値を入力してください');
+if (currentMode === 'attack') {
+addLog('attack-log', 強制介入コマンド送信 -> [${target}], 'var(--pastel-pink)');
+addLog('attack-log', 手動攻撃シーケンス開始... target: ${target}, 'var(--pastel-orange)');
+} else {
+addLog('defend-log', プロトコル手動適用 -> [${target}], 'var(--pastel-blue)');
+addLog('defend-log', セキュリティロック完了 // block: ${target}, 'var(--pastel-green)');
+}
+closePopup();
+}
+</script></body></html>
