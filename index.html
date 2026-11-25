@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AEGIS // Cyber Ops Console</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      color-scheme: dark;
+    }
+
+    html, body {
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background-color: #060913;
+      color: #e2e8f0;
+      background-image:
+        radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, rgba(244, 63, 94, 0.07) 0%, transparent 40%),
+        linear-gradient(rgba(30, 41, 59, 0.25) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30, 41, 59, 0.25) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .log-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .log-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .log-scroll::-webkit-scrollbar-thumb {
+      background: rgba(71, 85, 105, 0.6);
+      border-radius: 9999px;
+    }
+    .log-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.9);
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      70% { transform: scale(1.6); opacity: 0; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    .live-dot::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background-color: inherit;
+      animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .log-entry {
+      animation: slideIn 0.2s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="h-[100dvh] overflow-hidden flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
+
+  <!-- Top Telemetry Header -->
+  <header class="shrink-0 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+    <div class="max-w-[1600px] mx-auto px-3 sm:px-5 py-2.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+      
+      <!-- Brand, Title & Server Admin Button -->
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30 flex items-center justify-center shadow-lg shadow-cyan-500/10">
+            <i data-lucide="server" class="w-4 h-4 text-cyan-400"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">AEGIS <span class="text-slate-500 font-normal">//</span> CORE SERVER</h1>
+              <span id="server-status-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                <span class="relative w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"></span>
+                ONLINE
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400 hidden sm:block">CLUSTER: <span id="header-node-summary" class="font-mono-tech text-slate-300">3 NODES</span> // 10GbE バックボーン防衛・脅威オペレーション</p>
+          </div>
+        </div>
+
+        <button
+          id="btn-open-server-modal"
+          type="button"
+          class="lg:ml-3 px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+        >
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>サーバー管理</span>
+          <span id="btn-node-count-badge" class="ml-0.5 px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-mono-tech text-[10px]">3</span>
+        </button>
+      </div>
+
+      <!-- Real-time High-Speed Server Network Telemetry -->
+      <div class="grid grid-cols-3 gap-2 sm:gap-3 w-full lg:w-auto">
+        <!-- Ping -->
+        <div class="rounded-lg bg-slate-900/80 border border-slate-800 px-3 py-1.5 min-w-[100px] sm:min-w-[140px]">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1">
+              <i data-lucide="activity" class="w-2.5 h-2.5 text-cyan-400"></i> PING
+            </span>
+            <span id="ping-badge" class="text-[9px] font-mono-tech px-1 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">OPTIMAL</span>
+          </div>
+          <div class="font-mono-tech text-sm sm:text-base font-semibold text-white leading-tight mt-0.5">
+            <span id="metric-ping">1.8</span> <span class="text-[11px] text-slate-400 font-normal">ms</span>
+          </div>
+        </div>
+
+        <!-- Download Speed (Gbps) -->
+        <div class="rounded-lg bg-slate-900/80 border border-slate-800 px-3 py-1.5 min-w-[115px] sm:min-w-[160px]">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1">
+              <i data-lucide="arrow-down-circle" class="w-2.5 h-2.5 text-indigo-400"></i> DOWNLINK
+            </span>
+            <span id="down-delta" class="text-[9px] font-mono-tech text-emerald-400">+0.4%</span>
+          </div>
+          <div class="font-mono-tech text-sm sm:text-base font-semibold text-white leading-tight mt-0.5">
+            <span id="metric-down">9.42</span> <span class="text-[11px] text-slate-400 font-normal">Gbps</span>
+          </div>
+        </div>
+
+        <!-- Upload Speed (Gbps) -->
+        <div class="rounded-lg bg-slate-900/80 border border-slate-800 px-3 py-1.5 min-w-[115px] sm:min-w-[160px]">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1">
+              <i data-lucide="arrow-up-circle" class="w-2.5 h-2.5 text-rose-400"></i> UPLINK
+            </span>
+            <span id="up-delta" class="text-[9px] font-mono-tech text-cyan-400">-0.2%</span>
+          </div>
+          <div class="font-mono-tech text-sm sm:text-base font-semibold text-white leading-tight mt-0.5">
+            <span id="metric-up">8.76</span> <span class="text-[11px] text-slate-400 font-normal">Gbps</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Server Cluster Management Modal -->
+  <div id="server-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 sm:p-5">
+    <div class="w-full max-w-6xl max-h-[90dvh] flex flex-col rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="shrink-0 px-5 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-950/60">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="server-cog" class="w-4 h-4 text-cyan-400"></i>
+          <div>
+            <h3 class="text-sm font-semibold text-white">サーバークラスター管理 // 筐体・世代別ハードウェア・構成保存</h3>
+            <p class="text-[11px] text-slate-400">IP・OS・CPU/GPU世代と個数・大容量RAM・ストレージ容量・担当（防御/攻撃/回線切断休止）を管理</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btn-export-config" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer">
+            <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+            書き出し
+          </button>
+          <label class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer">
+            <i data-lucide="upload" class="w-3.5 h-3.5 text-indigo-400"></i>
+            読み込み
+            <input id="input-import-config" type="file" accept=".json,application/json" class="hidden" />
+          </label>
+          <button id="btn-close-server-modal" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cluster Summary & Global Controls -->
+      <div class="shrink-0 px-5 py-2.5 border-b border-slate-800/80 bg-slate-900/90 flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex flex-wrap items-center gap-2 text-[11px] font-mono-tech">
+          <span class="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-300">
+            防御: <strong id="modal-def-count">2</strong>台 (<span id="modal-def-speed">1.35x</span>)
+          </span>
+          <span class="px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/30 text-rose-300">
+            攻撃: <strong id="modal-atk-count">1</strong>台 (<span id="modal-atk-speed">1.00x</span>)
+          </span>
+          <span class="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-400">
+            回線切断休止: <strong id="modal-idle-count">0</strong>台
+          </span>
+          <span class="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300">
+            稼働合計: <strong id="modal-total-cpu">48</strong> vCPU / <strong id="modal-total-mem">192</strong> GB / <strong id="modal-total-gpu">2</strong> GPU
+          </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-950/60 border border-slate-800 cursor-pointer text-[11px] text-slate-200">
+            <span>緊急ロックダウン</span>
+            <input id="toggle-lockdown" type="checkbox" class="sr-only peer" />
+            <div class="w-8 h-4 bg-slate-700 rounded-full peer peer-checked:bg-rose-500 relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+          </label>
+          <button id="btn-srv-harden" type="button" class="px-2.5 py-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer">
+            <i data-lucide="shield-plus" class="w-3 h-3"></i>FW最適化
+          </button>
+          <button id="btn-srv-purge" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer">
+            <i data-lucide="sparkles" class="w-3 h-3"></i>ログ消去
+          </button>
+          <button id="btn-srv-reboot" type="button" class="px-2.5 py-1 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer">
+            <i data-lucide="rotate-cw" class="w-3 h-3"></i>再起動
+          </button>
+        </div>
+      </div>
+
+      <!-- Add New Server Node Bar -->
+      <div class="shrink-0 px-5 py-2.5 border-b border-slate-800/80 bg-slate-950/50">
+        <form id="add-node-form" class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-1.5 items-center">
+          <input id="new-node-name" type="text" placeholder="筐体名 (NODE-04)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-mono-tech text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500" />
+          <input id="new-node-ip" type="text" placeholder="IP (10.24.0.104)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-mono-tech text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500" />
+          <select id="new-node-os" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500"></select>
+          <select id="new-node-cpu-gen" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500"></select>
+          <select id="new-node-cpu-qty" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-mono-tech text-slate-200 focus:outline-none focus:border-cyan-500"></select>
+          <select id="new-node-mem" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-mono-tech text-slate-200 focus:outline-none focus:border-cyan-500"></select>
+          <input id="new-node-storage" type="text" placeholder="ストレージ (例: 16TB NVMe)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-mono-tech text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500" />
+          <select id="new-node-gpu-gen" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500"></select>
+          <select id="new-node-gpu-qty" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-mono-tech text-slate-200 focus:outline-none focus:border-cyan-500"></select>
+          <button type="submit" class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>筐体追加</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Server Nodes List (Scrollable) -->
+      <div id="server-nodes-list" class="flex-1 min-h-0 overflow-y-auto p-4 space-y-2.5 log-scroll bg-slate-950/30">
+        <!-- Nodes injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Dual-Pane Workspace (No outer scroll; only logs scroll) -->
+  <main class="flex-1 min-h-0 max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 grid-rows-2 md:grid-rows-1 md:grid-cols-2 gap-3 sm:gap-4">
+
+    <!-- ================= LEFT PANE: DEFENSIVE / SHIELD & COUNTER LOGS ================= -->
+    <section class="flex flex-col min-h-0 h-full rounded-xl bg-slate-900/75 backdrop-blur-md border border-slate-800/90 shadow-2xl overflow-hidden">
+      <!-- Panel Header -->
+      <div class="shrink-0 px-4 py-2.5 border-b border-slate-800/80 bg-gradient-to-r from-cyan-500/10 via-slate-900/50 to-transparent flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-cyan-400"></i>
+          </div>
+          <div>
+            <h2 class="text-xs sm:text-sm font-semibold text-white tracking-wide uppercase">防御コンソール &amp; 自動反撃 <span class="text-cyan-400/80 font-mono-tech text-[11px] ml-1">INBOUND</span></h2>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span id="def-node-speed-badge" class="text-[10px] font-mono-tech px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/25 text-cyan-300">
+            2台 // 1.35x
+          </span>
+          <span class="text-[11px] font-mono-tech px-2 py-0.5 rounded-md bg-slate-950/70 border border-slate-800 text-slate-300">
+            BLOCKED: <strong id="stat-def-blocked" class="text-cyan-400">0</strong>
+          </span>
+          <span class="text-[11px] font-mono-tech px-2 py-0.5 rounded-md bg-slate-950/70 border border-slate-800 text-slate-300">
+            COUNTER: <strong id="stat-def-counter" class="text-amber-400">0</strong>
+          </span>
+          <button id="btn-clear-defense" type="button" class="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer" title="防御ログをクリア">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Decoy (Substitute Defense) & Defense Controls -->
+      <div class="shrink-0 p-3 sm:px-4 sm:py-3 border-b border-slate-800/80 bg-slate-950/40 space-y-2.5">
+        <form id="decoy-form" class="flex flex-col sm:flex-row gap-2">
+          <div class="relative flex-1">
+            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5 text-violet-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            <input
+              id="decoy-target-input"
+              type="text"
+              placeholder="身代わり防御先 URL / IP (例: 10.0.99.250)"
+              class="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-mono-tech text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/70 focus:ring-2 focus:ring-violet-500/20 transition-all"
+            />
+          </div>
+          <button
+            id="btn-toggle-decoy"
+            type="submit"
+            class="px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 active:scale-[0.98] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-violet-600/20 transition-all whitespace-nowrap cursor-pointer"
+          >
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            <span id="decoy-btn-text">身代わりを設定</span>
+          </button>
+        </form>
+
+        <!-- Active Defense Status & Toggles -->
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div id="decoy-status-pill" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-[11px] text-slate-300">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+            <span>モード: <strong class="text-cyan-300 font-mono-tech">DIRECT SHIELD</strong></span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer select-none">
+              <input id="toggle-auto-counter" type="checkbox" checked class="sr-only peer" />
+              <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:bg-amber-500 relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+              <span>自動反撃</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer select-none">
+              <input id="toggle-inbound-sim" type="checkbox" checked class="sr-only peer" />
+              <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:bg-cyan-500 relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+              <span>自動監視</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Defense Completion Progress Gauge -->
+        <div class="space-y-1 pt-0.5">
+          <div class="flex items-center justify-between text-[10px] font-mono-tech">
+            <span id="def-progress-label" class="text-cyan-300 uppercase tracking-wider">迎撃シーケンス待機中...</span>
+            <span id="def-progress-pct" class="text-cyan-300 font-semibold">0%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800/90 rounded-full overflow-hidden">
+            <div id="gauge-def-progress" class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Defense Logs Stream (Scrollable) -->
+      <div id="defense-log-list" class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 log-scroll bg-slate-950/30">
+        <!-- Logs injected here -->
+      </div>
+    </section>
+
+    <!-- ================= RIGHT PANE: OFFENSIVE / ATTACK LOGS ================= -->
+    <section class="flex flex-col min-h-0 h-full rounded-xl bg-slate-900/75 backdrop-blur-md border border-slate-800/90 shadow-2xl overflow-hidden">
+      <!-- Panel Header -->
+      <div class="shrink-0 px-4 py-2.5 border-b border-slate-800/80 bg-gradient-to-r from-rose-500/10 via-slate-900/50 to-transparent flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
+            <i data-lucide="crosshair" class="w-3.5 h-3.5 text-rose-400"></i>
+          </div>
+          <div>
+            <h2 class="text-xs sm:text-sm font-semibold text-white tracking-wide uppercase">攻撃コンソール &amp; ログ <span class="text-rose-400/80 font-mono-tech text-[11px] ml-1">OUTBOUND</span></h2>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span id="atk-node-speed-badge" class="text-[10px] font-mono-tech px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300">
+            1台 // 1.00x
+          </span>
+          <span class="text-[11px] font-mono-tech px-2 py-0.5 rounded-md bg-slate-950/70 border border-slate-800 text-slate-300">
+            SENT: <strong id="stat-attack-sent" class="text-rose-400">0</strong>
+          </span>
+          <button id="btn-clear-attack" type="button" class="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer" title="攻撃ログをクリア">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Attack Controls -->
+      <div class="shrink-0 p-3 sm:px-4 sm:py-3 border-b border-slate-800/80 bg-slate-950/40 space-y-2.5">
+        <form id="attack-form" class="flex flex-col sm:flex-row gap-2">
+          <div class="relative flex-1">
+            <i data-lucide="globe" class="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            <input
+              id="attack-target-input"
+              type="text"
+              placeholder="攻撃先 URL / IP (例: 192.168.10.45)"
+              class="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-mono-tech text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/70 focus:ring-2 focus:ring-rose-500/20 transition-all"
+            />
+          </div>
+          <select id="attack-vector-select" class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 text-[11px] font-medium text-slate-200 focus:outline-none focus:border-rose-500/70">
+            <option value="SYN-FLOOD">SYN Flood</option>
+            <option value="HTTP2-RESET">HTTP/2 Rapid Reset</option>
+            <option value="PAYLOAD-INJ">Payload Injection</option>
+            <option value="PORT-SWEEP">Deep Port Sweep</option>
+          </select>
+          <button
+            id="btn-launch-attack"
+            type="submit"
+            class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/20 transition-all whitespace-nowrap cursor-pointer"
+          >
+            <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+            攻撃実行
+          </button>
+        </form>
+
+        <!-- Quick Presets & Continuous Mode -->
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+            <span class="text-slate-500">候補:</span>
+            <button type="button" class="preset-attack px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-mono-tech transition-colors cursor-pointer" data-target="185.220.101.44">185.220.101.44</button>
+            <button type="button" class="preset-attack px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-mono-tech transition-colors cursor-pointer" data-target="https://core-api.nexus-node.net">core-api.nexus-node.net</button>
+          </div>
+          <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer select-none">
+            <input id="toggle-auto-attack" type="checkbox" class="sr-only peer" />
+            <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:bg-rose-500 relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4"></div>
+            <span>継続攻撃</span>
+          </label>
+        </div>
+
+        <!-- Attack Completion Progress Gauge -->
+        <div class="space-y-1 pt-0.5">
+          <div class="flex items-center justify-between text-[10px] font-mono-tech">
+            <span id="atk-progress-label" class="text-rose-300 uppercase tracking-wider">攻撃シーケンス待機中...</span>
+            <span id="atk-progress-pct" class="text-rose-300 font-semibold">0%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800/90 rounded-full overflow-hidden">
+            <div id="gauge-atk-progress" class="h-full bg-gradient-to-r from-amber-400 to-rose-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attack Logs Stream (Scrollable) -->
+      <div id="attack-log-list" class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 log-scroll bg-slate-950/30">
+        <!-- Logs injected here -->
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    const STORAGE_KEY = 'aegis_cyber_ops_config_v2';
+
+    const OS_OPTIONS = [
+      'AEGIS Linux 6.8 (Hardened)',
+      'Ubuntu Server 24.04 LTS',
+      'Debian 12 Bookworm',
+      'Red Hat Enterprise Linux 9.4',
+      'AlmaLinux 9.4',
+      'Rocky Linux 9.4',
+      'Fedora Server 40',
+      'Arch Linux (Kernel 6.11)',
+      'Kali Linux Server 2024.3',
+      'FreeBSD 14.1-RELEASE',
+      'OpenBSD 7.6',
+      'Windows Server 2025 Datacenter',
+      'VMware ESXi 8.0 U3'
+    ];
+
+    const CPU_GEN_OPTIONS = [
+      'AMD EPYC 第5世代 (Turin / Zen 5)',
+      'AMD EPYC 第4世代 (Genoa / Zen 4)',
+      'AMD EPYC 第3世代 (Milan / Zen 3)',
+      'Intel Xeon 第6世代 (Granite Rapids)',
+      'Intel Xeon 第5世代 (Emerald Rapids)',
+      'Intel Xeon 第4世代 (Sapphire Rapids)',
+      'AWS Graviton4 世代 (ARM64)',
+      'AmpereOne 世代 (ARM64)',
+      'IBM Power10 世代'
+    ];
+
+    const CPU_QTY_OPTIONS = [1, 2, 4, 8];
+    const MEM_OPTIONS = [64, 128, 256, 512, 1024, 2048, 4096, 8192];
+
+    const GPU_GEN_OPTIONS = [
+      'なし (CPU Only)',
+      'NVIDIA Blackwell 世代 (B100/B200)',
+      'NVIDIA Hopper 世代 (H100/H200)',
+      'NVIDIA Ada Lovelace 世代 (L40S/L4)',
+      'NVIDIA Ampere 世代 (A100/A40)',
+      'NVIDIA Volta 世代 (V100)',
+      'AMD Instinct CDNA 3 世代 (MI300)',
+      'AMD Instinct CDNA 2 世代 (MI250)',
+      'Intel Xe-HPC 世代 (Ponte Vecchio)',
+      'Intel Gaudi 3 世代'
+    ];
+
+    const GPU_QTY_OPTIONS = [0, 1, 2, 4, 8, 16];
+
+    const DEFAULT_NODES = [
+      { id: 'n1', name: 'NODE-JP-TYO-01', ip: '10.24.0.101', os: 'AEGIS Linux 6.8 (Hardened)', cpuGen: 'AMD EPYC 第5世代 (Turin / Zen 5)', cpuQty: 2, mem: 1024, storage: '32TB NVMe RAID', gpuGen: 'NVIDIA Hopper 世代 (H100/H200)', gpuQty: 4, role: 'defense' },
+      { id: 'n2', name: 'NODE-JP-OSA-02', ip: '10.24.0.102', os: 'Ubuntu Server 24.04 LTS', cpuGen: 'Intel Xeon 第6世代 (Granite Rapids)', cpuQty: 2, mem: 512, storage: '16TB NVMe', gpuGen: 'なし (CPU Only)', gpuQty: 0, role: 'defense' },
+      { id: 'n3', name: 'NODE-SG-SIN-03', ip: '10.24.0.201', os: 'Kali Linux Server 2024.3', cpuGen: 'AMD EPYC 第4世代 (Genoa / Zen 4)', cpuQty: 2, mem: 2048, storage: '64TB NVMe Gen5', gpuGen: 'NVIDIA Blackwell 世代 (B100/B200)', gpuQty: 8, role: 'attack' }
+    ];
+
+    const state = {
+      ping: 1.8,
+      down: 9.42,
+      up: 8.76,
+      attackSentCount: 0,
+      defenseBlockedCount: 0,
+      defenseCounterCount: 0,
+      decoyActive: false,
+      decoyTarget: '',
+      autoCounter: true,
+      inboundSim: true,
+      autoAttack: false,
+      lockdownMode: false,
+      currentAttackTarget: '',
+      currentAttackVector: 'SYN-FLOOD',
+      manualAttackActive: false,
+      attackProgress: 0,
+      defenseProgress: 0,
+      maxLogs: 100,
+      nodes: JSON.parse(JSON.stringify(DEFAULT_NODES)),
+      nextNodeSeq: 4
+    };
+
+    function saveConfigToBrowser() {
+      try {
+        const payload = {
+          nodes: state.nodes,
+          nextNodeSeq: state.nextNodeSeq,
+          decoyActive: state.decoyActive,
+          decoyTarget: state.decoyTarget,
+          autoCounter: state.autoCounter,
+          inboundSim: state.inboundSim,
+          lockdownMode: state.lockdownMode
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (e) {
+        // Ignore storage restrictions
+      }
+    }
+
+    function loadConfigFromBrowser() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (Array.isArray(data.nodes)) state.nodes = data.nodes;
+        if (typeof data.nextNodeSeq === 'number') state.nextNodeSeq = data.nextNodeSeq;
+        if (typeof data.decoyActive === 'boolean') state.decoyActive = data.decoyActive;
+        if (typeof data.decoyTarget === 'string') state.decoyTarget = data.decoyTarget;
+        if (typeof data.autoCounter === 'boolean') state.autoCounter = data.autoCounter;
+        if (typeof data.inboundSim === 'boolean') state.inboundSim = data.inboundSim;
+        if (typeof data.lockdownMode === 'boolean') state.lockdownMode = data.lockdownMode;
+      } catch (e) {
+        // Ignore corrupt or blocked storage
+      }
+    }
+
+    const ATTACKER_POOL = [
+      { addr: '45.155.205.91', origin: 'EU-WEST', vector: 'SSH Brute Force' },
+      { addr: 'https://c2-relay.darknode.io', origin: 'PROXY-NET', vector: 'HTTP/2 Flood' },
+      { addr: '103.149.88.12', origin: 'AP-EAST', vector: 'SQLi Probe' },
+      { addr: 'https://bot-cluster7.proxy-x.io', origin: 'TOR-EXIT', vector: 'XSS Payload' },
+      { addr: '194.26.135.203', origin: 'RU-CENTRAL', vector: 'SYN Flood' },
+      { addr: '91.240.118.172', origin: 'NL-AMS', vector: 'Zero-Day Scan' },
+      { addr: 'https://scrape-farm.anon-host.net', origin: 'US-EAST', vector: 'API Rate Abuse' },
+      { addr: '176.113.115.64', origin: 'UNKNOWN', vector: 'UDP Amplification' },
+      { addr: '185.156.73.54', origin: 'DE-FRA', vector: 'TLS Downgrade' },
+      { addr: 'https://auth-spoof.velox-cdn.xyz', origin: 'SG-SIN', vector: 'Credential Stuffing' },
+      { addr: '198.51.100.214', origin: 'US-WEST', vector: 'ICMP Smurf' },
+      { addr: 'https://rpc-tunnel.shadowgate.org', origin: 'CH-ZRH', vector: 'BGP Hijack Probe' },
+      { addr: '203.0.113.77', origin: 'JP-TYO', vector: 'DNS Tunneling' },
+      { addr: '162.247.74.201', origin: 'TOR-EXIT', vector: 'Directory Traversal' },
+      { addr: 'https://edge-crawler.kestrel-net.com', origin: 'UK-LON', vector: 'WebSocket Flood' },
+      { addr: '77.247.181.163', origin: 'SE-STO', vector: 'ARP Spoof Relay' },
+      { addr: 'https://payload-drop.hydra-srv.cc', origin: 'BG-SOF', vector: 'RCE Exploit Attempt' },
+      { addr: '141.98.10.229', origin: 'LT-VNO', vector: 'RDP Port Scan' },
+      { addr: 'https://api-harvester.voidmesh.net', origin: 'CA-TOR', vector: 'GraphQL Depth Attack' },
+      { addr: '31.184.238.15', origin: 'PL-WAW', vector: 'NTP Amplification' },
+      { addr: 'https://mirror-09.phantom-dns.info', origin: 'HK-HKG', vector: 'Cache Poisoning' },
+      { addr: '89.248.165.118', origin: 'NL-RTM', vector: 'Memcached Reflection' },
+      { addr: 'https://gw-bypass.zerotrace.cloud', origin: 'FR-PAR', vector: 'JWT Signature Forgery' },
+      { addr: '104.244.76.13', origin: 'LU-LUX', vector: 'Slowloris Exhaustion' }
+    ];
+
+    const DYNAMIC_SUBDOMAINS = ['relay', 'node', 'gw', 'edge', 'auth', 'mirror', 'proxy', 'c2', 'bot', 'cdn', 'api', 'tunnel'];
+    const DYNAMIC_DOMAINS = ['darkmesh', 'vortex-net', 'shadowdns', 'kronos-io', 'phantom-gw', 'oblivion', 'hexcore', 'cipher-hub'];
+    const DYNAMIC_TLDS = ['net', 'io', 'xyz', 'org', 'cloud', 'cc', 'info'];
+    const DYNAMIC_ORIGINS = ['EU-CENTRAL', 'US-EAST', 'AP-SOUTH', 'TOR-RELAY', 'ANON-VPN', 'SA-GRU', 'RU-MSK', 'KR-SEL'];
+    const DYNAMIC_VECTORS = ['SYN Flood', 'HTTP/2 Rapid Reset', 'SQLi Probe', 'RCE Attempt', 'DNS Amplification', 'Port Sweep', 'Token Replay', 'SSRF Probe'];
+
+    function pickAttacker() {
+      if (Math.random() < 0.6) {
+        return ATTACKER_POOL[Math.floor(Math.random() * ATTACKER_POOL.length)];
+      }
+      const origin = DYNAMIC_ORIGINS[Math.floor(Math.random() * DYNAMIC_ORIGINS.length)];
+      const vector = DYNAMIC_VECTORS[Math.floor(Math.random() * DYNAMIC_VECTORS.length)];
+      if (Math.random() < 0.55) {
+        const a = [45, 77, 89, 91, 103, 141, 162, 176, 185, 194, 212][Math.floor(Math.random() * 11)];
+        const b = Math.floor(Math.random() * 254) + 1;
+        const c = Math.floor(Math.random() * 254) + 1;
+        const d = Math.floor(Math.random() * 254) + 1;
+        return { addr: `${a}.${b}.${c}.${d}`, origin, vector };
+      } else {
+        const sub = DYNAMIC_SUBDOMAINS[Math.floor(Math.random() * DYNAMIC_SUBDOMAINS.length)];
+        const num = Math.floor(Math.random() * 90) + 10;
+        const dom = DYNAMIC_DOMAINS[Math.floor(Math.random() * DYNAMIC_DOMAINS.length)];
+        const tld = DYNAMIC_TLDS[Math.floor(Math.random() * DYNAMIC_TLDS.length)];
+        return { addr: `https://${sub}-${num}.${dom}.${tld}`, origin, vector };
+      }
+    }
+
+    // DOM refs
+    const elPing = document.getElementById('metric-ping');
+    const elPingBadge = document.getElementById('ping-badge');
+    const elDown = document.getElementById('metric-down');
+    const elDownDelta = document.getElementById('down-delta');
+    const elUp = document.getElementById('metric-up');
+    const elUpDelta = document.getElementById('up-delta');
+
+    const elHeaderNodeSummary = document.getElementById('header-node-summary');
+    const elBtnNodeCountBadge = document.getElementById('btn-node-count-badge');
+    const elDefNodeSpeedBadge = document.getElementById('def-node-speed-badge');
+    const elAtkNodeSpeedBadge = document.getElementById('atk-node-speed-badge');
+
+    const elDefProgressLabel = document.getElementById('def-progress-label');
+    const elDefProgressPct = document.getElementById('def-progress-pct');
+    const elGaugeDefProgress = document.getElementById('gauge-def-progress');
+
+    const elAtkProgressLabel = document.getElementById('atk-progress-label');
+    const elAtkProgressPct = document.getElementById('atk-progress-pct');
+    const elGaugeAtkProgress = document.getElementById('gauge-atk-progress');
+
+    const elAttackForm = document.getElementById('attack-form');
+    const elAttackInput = document.getElementById('attack-target-input');
+    const elAttackVector = document.getElementById('attack-vector-select');
+    const elAttackList = document.getElementById('attack-log-list');
+    const elStatAttackSent = document.getElementById('stat-attack-sent');
+    const elToggleAutoAttack = document.getElementById('toggle-auto-attack');
+
+    const elDecoyForm = document.getElementById('decoy-form');
+    const elDecoyInput = document.getElementById('decoy-target-input');
+    const elBtnToggleDecoy = document.getElementById('btn-toggle-decoy');
+    const elDecoyBtnText = document.getElementById('decoy-btn-text');
+    const elDecoyStatusPill = document.getElementById('decoy-status-pill');
+    const elDefenseList = document.getElementById('defense-log-list');
+    const elStatDefBlocked = document.getElementById('stat-def-blocked');
+    const elStatDefCounter = document.getElementById('stat-def-counter');
+    const elToggleAutoCounter = document.getElementById('toggle-auto-counter');
+    const elToggleInboundSim = document.getElementById('toggle-inbound-sim');
+
+    // Modal refs
+    const elServerModal = document.getElementById('server-modal');
+    const elServerStatusBadge = document.getElementById('server-status-badge');
+    const elToggleLockdown = document.getElementById('toggle-lockdown');
+    const elServerNodesList = document.getElementById('server-nodes-list');
+    const elModalDefCount = document.getElementById('modal-def-count');
+    const elModalDefSpeed = document.getElementById('modal-def-speed');
+    const elModalAtkCount = document.getElementById('modal-atk-count');
+    const elModalAtkSpeed = document.getElementById('modal-atk-speed');
+    const elModalIdleCount = document.getElementById('modal-idle-count');
+    const elModalTotalCpu = document.getElementById('modal-total-cpu');
+    const elModalTotalMem = document.getElementById('modal-total-mem');
+    const elModalTotalGpu = document.getElementById('modal-total-gpu');
+
+    function formatMemLabel(gb) {
+      return gb >= 1024 ? `${gb} GB (${gb / 1024} TB)` : `${gb} GB`;
+    }
+
+    function populateAddNodeSelects() {
+      document.getElementById('new-node-os').innerHTML = OS_OPTIONS.map((o) => `<option value="${o}">${o}</option>`).join('');
+      document.getElementById('new-node-cpu-gen').innerHTML = CPU_GEN_OPTIONS.map((b) => `<option value="${b}">${b}</option>`).join('');
+      document.getElementById('new-node-cpu-qty').innerHTML = CPU_QTY_OPTIONS.map((c) => `<option value="${c}" ${c === 2 ? 'selected' : ''}>CPU ${c}基</option>`).join('');
+      document.getElementById('new-node-mem').innerHTML = MEM_OPTIONS.map((m) => `<option value="${m}" ${m === 1024 ? 'selected' : ''}>${formatMemLabel(m)}</option>`).join('');
+      document.getElementById('new-node-gpu-gen').innerHTML = GPU_GEN_OPTIONS.map((g) => `<option value="${g}">${g}</option>`).join('');
+      document.getElementById('new-node-gpu-qty').innerHTML = GPU_QTY_OPTIONS.map((q) => `<option value="${q}" ${q === 0 ? 'selected' : ''}>GPU ${q}基</option>`).join('');
+    }
+
+    function nowTime() {
+      const d = new Date();
+      return d.toTimeString().split(' ')[0] + '.' + String(d.getMilliseconds()).padStart(3, '0').slice(0, 2);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function showToast(message, tone = 'info') {
+      const container = document.getElementById('toast-container');
+      const colors = {
+        info: 'border-cyan-500/40 bg-slate-900/95 text-cyan-200',
+        warn: 'border-amber-500/40 bg-slate-900/95 text-amber-200',
+        error: 'border-rose-500/40 bg-slate-900/95 text-rose-200',
+        violet: 'border-violet-500/40 bg-slate-900/95 text-violet-200'
+      };
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto px-3.5 py-2 rounded-lg border text-xs font-medium shadow-xl backdrop-blur-md transition-all ${colors[tone] || colors.info}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(6px)';
+        setTimeout(() => toast.remove(), 220);
+      }, 2600);
+    }
+
+    function appendLog(container, html) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html.trim();
+      const entry = wrapper.firstChild;
+      container.prepend(entry);
+      while (container.children.length > state.maxLogs) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    function isValidTarget(val) {
+      if (!val || val.trim().length < 3) return false;
+      return /^[a-zA-Z0-9.:/_-]+$/.test(val.trim());
+    }
+
+    function getClusterMetrics() {
+      const defNodes = state.nodes.filter((n) => n.role === 'defense');
+      const atkNodes = state.nodes.filter((n) => n.role === 'attack');
+      const idleNodes = state.nodes.filter((n) => n.role === 'idle');
+      const activeNodes = [...defNodes, ...atkNodes];
+
+      const totalCpu = activeNodes.reduce((sum, n) => sum + Number(n.cpuQty || 1) * 32, 0);
+      const totalMem = activeNodes.reduce((sum, n) => sum + Number(n.mem || 0), 0);
+      const totalGpu = activeNodes.reduce((sum, n) => sum + (n.gpuGen && !n.gpuGen.startsWith('なし') ? Number(n.gpuQty || 0) : 0), 0);
+
+      const defGpuCount = defNodes.reduce((sum, n) => sum + (n.gpuGen && !n.gpuGen.startsWith('なし') ? Number(n.gpuQty || 0) : 0), 0);
+      const atkGpuCount = atkNodes.reduce((sum, n) => sum + (n.gpuGen && !n.gpuGen.startsWith('なし') ? Number(n.gpuQty || 0) : 0), 0);
+
+      const defMult = defNodes.length === 0 ? 0.5 : +(1 + (defNodes.length - 1) * 0.35 + Math.min(0.6, defGpuCount * 0.04)).toFixed(2);
+      const atkMult = atkNodes.length === 0 ? 0.5 : +(1 + (atkNodes.length - 1) * 0.35 + Math.min(0.6, atkGpuCount * 0.04)).toFixed(2);
+
+      return {
+        defCount: defNodes.length,
+        atkCount: atkNodes.length,
+        idleCount: idleNodes.length,
+        defMult,
+        atkMult,
+        totalCpu,
+        totalMem,
+        totalGpu
+      };
+    }
+
+    function updateClusterBadges() {
+      const m = getClusterMetrics();
+      const activeCount = m.defCount + m.atkCount;
+      elHeaderNodeSummary.textContent = `${activeCount} ONLINE / ${m.idleCount} DISCONNECTED`;
+      elBtnNodeCountBadge.textContent = state.nodes.length;
+      elDefNodeSpeedBadge.textContent = `${m.defCount}台 // ${m.defMult.toFixed(2)}x`;
+      elAtkNodeSpeedBadge.textContent = `${m.atkCount}台 // ${m.atkMult.toFixed(2)}x`;
+
+      elModalDefCount.textContent = m.defCount;
+      elModalDefSpeed.textContent = `${m.defMult.toFixed(2)}x`;
+      elModalAtkCount.textContent = m.atkCount;
+      elModalAtkSpeed.textContent = `${m.atkMult.toFixed(2)}x`;
+      elModalIdleCount.textContent = m.idleCount;
+      elModalTotalCpu.textContent = m.totalCpu;
+      elModalTotalMem.textContent = m.totalMem >= 1024 ? `${(m.totalMem / 1024).toFixed(1)}TB` : `${m.totalMem}GB`;
+      elModalTotalGpu.textContent = m.totalGpu;
+    }
+
+    function renderServerNodes() {
+      updateClusterBadges();
+      if (state.nodes.length === 0) {
+        elServerNodesList.innerHTML = `<div class="text-center py-8 text-xs text-slate-400">接続されている筐体がありません。「筐体追加」から新規ノードを接続してください。</div>`;
+        return;
+      }
+
+      elServerNodesList.innerHTML = state.nodes.map((node) => {
+        const isDef = node.role === 'defense';
+        const isAtk = node.role === 'attack';
+        const isIdle = node.role === 'idle';
+        const borderCls = isDef ? 'border-cyan-500/30' : (isAtk ? 'border-rose-500/30' : 'border-slate-700/60 opacity-65');
+        const dotCls = isDef ? 'bg-cyan-400' : (isAtk ? 'bg-rose-400' : 'bg-slate-500');
+        const badgeCls = isDef ? 'bg-cyan-500/15 text-cyan-300' : (isAtk ? 'bg-rose-500/15 text-rose-300' : 'bg-slate-800 text-slate-400 border border-slate-700');
+        const roleLabel = isDef ? '防御担当 // LINK UP' : (isAtk ? '攻撃担当 // LINK UP' : 'NET DISCONNECTED (休止中)');
+
+        return `
+          <div class="rounded-xl bg-slate-900/90 border ${borderCls} p-3 flex flex-col gap-2.5" data-node-id="${node.id}">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${dotCls}"></span>
+                <span class="font-mono-tech text-xs font-bold text-white">${escapeHtml(node.name)}</span>
+                <span class="text-[10px] font-mono-tech px-1.5 py-0.5 rounded ${badgeCls}">${roleLabel}</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                  <button type="button" data-action="role-def" data-id="${node.id}" class="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${isDef ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'}">防御</button>
+                  <button type="button" data-action="role-atk" data-id="${node.id}" class="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${isAtk ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-white'}">攻撃</button>
+                  <button type="button" data-action="role-idle" data-id="${node.id}" class="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${isIdle ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}">休止 (切断)</button>
+                </div>
+                <button type="button" data-action="detach" data-id="${node.id}" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-600/30 border border-slate-700 hover:border-rose-500/40 text-[11px] text-slate-300 hover:text-rose-200 transition-colors cursor-pointer">
+                  切り離し
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+              <div>
+                <label class="block text-[9px] text-slate-400 uppercase mb-0.5">${isIdle ? 'IP (切断中)' : 'IP Address'}</label>
+                <input type="text" data-field="ip" data-id="${node.id}" ${isIdle ? 'disabled' : ''} value="${escapeHtml(node.ip)}" class="w-full px-2 py-1 rounded-md bg-slate-950 border border-slate-700/80 text-[11px] font-mono-tech ${isIdle ? 'text-slate-500 line-through' : 'text-cyan-200'} focus:outline-none focus:border-cyan-500" />
+              </div>
+              <div>
+                <label class="block text-[9px] text-slate-400 uppercase mb-0.5">OS</label>
+                <select data-field="os" data-id="${node.id}" class="w-full px-2 py-1 rounded-md bg-slate-950 border border-slate-700/80 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500">
+                  ${OS_OPTIONS.map((os) => `<option value="${os}" ${node.os === os ? 'selected' : ''}>${os}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-[9px] text-slate-400 uppercase mb-0.5">CPU 世代</label>
+                <select data-field="cpuGen" data-id="${node.id}" class="w-full px-2 py-1 rounded-md bg-slate-950 border border-slate-700/80 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500">
+                  ${CPU_GEN_OPTIONS.map((b) => `<option value="${b}" ${node.cpuGen === b ? 'selected' : ''}>${b}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-[9px] text-slate-400 uppercase mb-0.5">CPU 個数</label>
+                <select data-field="cpuQty" data-id="${node.id}" class="w-full px-2 py-1 rounded-md bg-slate-950 border border-slate-700/80 text-[11px] font-mono-tech text-slate-200 focus:outline-none focus:border-cyan-500">
+                  ${CPU_QTY_OPTIONS.map((c) => `<option value="${c}" ${Number(node.cpuQty) === c ? 'selected' : ''}>${c}基</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-[9px] text-slate-400 uppercase mb-0.5">RAM 容量</label>
+                <select data-field="mem" data-id="${node.id}" class="w-full px-2 py-1 rounded-md bg-slate-950 border border-slate-700/80 text-[11px] font-mono-tech text-slate-200 focus:outline-none focus:border-cyan-500">
+                  ${MEM_OPTIONS.map((mem) => `<option value="${mem}" ${Number(node.mem) === mem ? 'selected' : ''}>${formatMemLabel(mem)}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-[9px] text-slate-400 uppercase mb-0.5">ストレージ (入力)</label>
+                <input type="text" data-field="storage" data-id="${node.id}" value="${escapeHtml(node.storage || '')}" placeholder="例: 16TB NVMe" class="w-full px-2 py-1 rounded-md bg-slate-950 border border-slate-700/80 text-[11px] font-mono-tech text-slate-200 focus:outline-none focus:border-cyan-500" />
+              </div>
+              <div>
+                <label class="block text-[9px] text-slate-400 uppercase mb-0.5">GPU 世代</label>
+                <select data-field="gpuGen" data-id="${node.id}" class="w-full px-2 py-1 rounded-md bg-slate-950 border border-slate-700/80 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500">
+                  ${GPU_GEN_OPTIONS.map((g) => `<option value="${g}" ${node.gpuGen === g ? 'selected' : ''}>${g}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-[9px] text-slate-400 uppercase mb-0.5">GPU 個数</label>
+                <select data-field="gpuQty" data-id="${node.id}" class="w-full px-2 py-1 rounded-md bg-slate-950 border border-slate-700/80 text-[11px] font-mono-tech text-slate-200 focus:outline-none focus:border-cyan-500">
+                  ${GPU_QTY_OPTIONS.map((q) => `<option value="${q}" ${Number(node.gpuQty) === q ? 'selected' : ''}>${q}基</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    elServerNodesList.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const { action, id } = btn.dataset;
+      const node = state.nodes.find((n) => n.id === id);
+      if (!node) return;
+
+      if (action === 'role-def') {
+        node.role = 'defense';
+        renderServerNodes();
+        saveConfigToBrowser();
+        showToast(`${node.name} の回線を接続し、防御担当に設定しました`, 'info');
+      } else if (action === 'role-atk') {
+        node.role = 'attack';
+        renderServerNodes();
+        saveConfigToBrowser();
+        showToast(`${node.name} の回線を接続し、攻撃担当に設定しました`, 'warn');
+      } else if (action === 'role-idle') {
+        node.role = 'idle';
+        renderServerNodes();
+        saveConfigToBrowser();
+        showToast(`${node.name} のネットワークを一時切断し休止状態にしました`, 'info');
+      } else if (action === 'detach') {
+        state.nodes = state.nodes.filter((n) => n.id !== id);
+        renderServerNodes();
+        saveConfigToBrowser();
+        showToast(`${node.name} をクラスターから切り離しました`, 'info');
+      }
+    });
+
+    elServerNodesList.addEventListener('change', (e) => {
+      const el = e.target;
+      const { field, id } = el.dataset;
+      if (!field || !id) return;
+      const node = state.nodes.find((n) => n.id === id);
+      if (!node) return;
+
+      if (field === 'ip') {
+        const val = el.value.trim();
+        if (!isValidTarget(val)) {
+          showToast('有効なIPアドレスを入力してください', 'error');
+          el.value = node.ip;
+          return;
+        }
+        node.ip = val;
+        showToast(`${node.name} のIPを ${val} に更新しました`, 'info');
+      } else if (field === 'os') {
+        node.os = el.value;
+      } else if (field === 'cpuGen') {
+        node.cpuGen = el.value;
+      } else if (field === 'cpuQty') {
+        node.cpuQty = Number(el.value);
+        updateClusterBadges();
+      } else if (field === 'mem') {
+        node.mem = Number(el.value);
+        updateClusterBadges();
+      } else if (field === 'storage') {
+        node.storage = el.value.trim();
+      } else if (field === 'gpuGen') {
+        node.gpuGen = el.value;
+        if (node.gpuGen.startsWith('なし')) node.gpuQty = 0;
+        else if (Number(node.gpuQty) === 0) node.gpuQty = 1;
+        renderServerNodes();
+      } else if (field === 'gpuQty') {
+        node.gpuQty = Number(el.value);
+        updateClusterBadges();
+      }
+      saveConfigToBrowser();
+    });
+
+    document.getElementById('add-node-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nameInput = document.getElementById('new-node-name');
+      const ipInput = document.getElementById('new-node-ip');
+      const osInput = document.getElementById('new-node-os');
+      const cpuGenInput = document.getElementById('new-node-cpu-gen');
+      const cpuQtyInput = document.getElementById('new-node-cpu-qty');
+      const memInput = document.getElementById('new-node-mem');
+      const storageInput = document.getElementById('new-node-storage');
+      const gpuGenInput = document.getElementById('new-node-gpu-gen');
+      const gpuQtyInput = document.getElementById('new-node-gpu-qty');
+
+      const seq = String(state.nextNodeSeq).padStart(2, '0');
+      const name = nameInput.value.trim() || `NODE-JP-TYO-${seq}`;
+      const ip = ipInput.value.trim() || `10.24.0.${100 + state.nextNodeSeq}`;
+      const storage = storageInput.value.trim() || '16TB NVMe';
+      state.nextNodeSeq += 1;
+
+      state.nodes.push({
+        id: `n_${Date.now()}`,
+        name,
+        ip,
+        os: osInput.value,
+        cpuGen: cpuGenInput.value,
+        cpuQty: Number(cpuQtyInput.value),
+        mem: Number(memInput.value),
+        storage,
+        gpuGen: gpuGenInput.value,
+        gpuQty: gpuGenInput.value.startsWith('なし') ? 0 : Math.max(1, Number(gpuQtyInput.value)),
+        role: 'defense'
+      });
+
+      nameInput.value = '';
+      ipInput.value = '';
+      storageInput.value = '';
+      renderServerNodes();
+      saveConfigToBrowser();
+      showToast(`新規筐体 ${name} (${ip}) を追加しました`, 'info');
+    });
+
+    // Export / Import Config
+    document.getElementById('btn-export-config').addEventListener('click', () => {
+      const exportData = {
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        nodes: state.nodes,
+        nextNodeSeq: state.nextNodeSeq,
+        decoyActive: state.decoyActive,
+        decoyTarget: state.decoyTarget,
+        autoCounter: state.autoCounter,
+        inboundSim: state.inboundSim,
+        lockdownMode: state.lockdownMode
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aegis-cluster-config.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('サーバー構成をJSONファイルとして書き出しました', 'info');
+    });
+
+    document.getElementById('input-import-config').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          if (!Array.isArray(parsed.nodes)) {
+            showToast('無効な設定ファイル形式です', 'error');
+            return;
+          }
+          state.nodes = parsed.nodes.map((n, idx) => ({
+            id: n.id || `n_imp_${idx}_${Date.now()}`,
+            name: n.name || `NODE-${idx + 1}`,
+            ip: n.ip || `10.24.0.${100 + idx}`,
+            os: n.os || OS_OPTIONS[0],
+            cpuGen: n.cpuGen || CPU_GEN_OPTIONS[0],
+            cpuQty: Number(n.cpuQty) || 2,
+            mem: Number(n.mem) || 1024,
+            storage: n.storage || '16TB NVMe',
+            gpuGen: n.gpuGen || GPU_GEN_OPTIONS[0],
+            gpuQty: Number(n.gpuQty) || 0,
+            role: ['defense', 'attack', 'idle'].includes(n.role) ? n.role : 'defense'
+          }));
+          if (typeof parsed.nextNodeSeq === 'number') state.nextNodeSeq = parsed.nextNodeSeq;
+          if (typeof parsed.autoCounter === 'boolean') {
+            state.autoCounter = parsed.autoCounter;
+            elToggleAutoCounter.checked = state.autoCounter;
+          }
+          if (typeof parsed.inboundSim === 'boolean') {
+            state.inboundSim = parsed.inboundSim;
+            elToggleInboundSim.checked = state.inboundSim;
+          }
+          if (typeof parsed.lockdownMode === 'boolean') {
+            state.lockdownMode = parsed.lockdownMode;
+            elToggleLockdown.checked = state.lockdownMode;
+            applyLockdownUI();
+          }
+          if (typeof parsed.decoyActive === 'boolean' && typeof parsed.decoyTarget === 'string') {
+            state.decoyActive = parsed.decoyActive;
+            state.decoyTarget = parsed.decoyTarget;
+            applyDecoyUI();
+          }
+          renderServerNodes();
+          saveConfigToBrowser();
+          showToast(`設定を読み込みました (${state.nodes.length}台の筐体を復元)`, 'info');
+        } catch (err) {
+          showToast('JSONファイルの解析に失敗しました', 'error');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    function applyLockdownUI() {
+      if (state.lockdownMode) {
+        elServerStatusBadge.innerHTML = `<span class="relative w-1.5 h-1.5 rounded-full bg-rose-400 live-dot"></span>LOCKDOWN`;
+        elServerStatusBadge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30';
+      } else {
+        elServerStatusBadge.innerHTML = `<span class="relative w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"></span>ONLINE`;
+        elServerStatusBadge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/25';
+      }
+    }
+
+    function applyDecoyUI() {
+      if (state.decoyActive && state.decoyTarget) {
+        elDecoyInput.value = state.decoyTarget;
+        elDecoyBtnText.textContent = '身代わりを解除';
+        elBtnToggleDecoy.className = 'px-3.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 active:scale-[0.98] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer';
+        elDecoyStatusPill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span><span>身代わり稼働: <strong class="text-violet-300 font-mono-tech">${escapeHtml(state.decoyTarget)}</strong></span>`;
+        elDecoyInput.disabled = true;
+      } else {
+        elDecoyBtnText.textContent = '身代わりを設定';
+        elBtnToggleDecoy.className = 'px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 active:scale-[0.98] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-violet-600/20 transition-all whitespace-nowrap cursor-pointer';
+        elDecoyStatusPill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span><span>モード: <strong class="text-cyan-300 font-mono-tech">DIRECT SHIELD</strong></span>`;
+        elDecoyInput.disabled = false;
+      }
+    }
+
+    // ================= TELEMETRY =================
+    function updateTelemetry() {
+      const pingDiff = (Math.random() * 0.8 - 0.4);
+      state.ping = Math.max(0.8, Math.min(6.5, +(state.ping + pingDiff).toFixed(1)));
+
+      const downDiff = (Math.random() * 0.36 - 0.18);
+      const prevDown = state.down;
+      state.down = Math.max(8.10, Math.min(9.98, +(state.down + downDiff).toFixed(2)));
+      const downPct = (((state.down - prevDown) / prevDown) * 100).toFixed(1);
+
+      const upDiff = (Math.random() * 0.34 - 0.17);
+      const prevUp = state.up;
+      state.up = Math.max(7.20, Math.min(9.85, +(state.up + upDiff).toFixed(2)));
+      const upPct = (((state.up - prevUp) / prevUp) * 100).toFixed(1);
+
+      elPing.textContent = state.ping.toFixed(1);
+      if (state.ping <= 3.0) {
+        elPingBadge.textContent = 'OPTIMAL';
+        elPingBadge.className = 'text-[9px] font-mono-tech px-1 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20';
+      } else if (state.ping <= 5.0) {
+        elPingBadge.textContent = 'NOMINAL';
+        elPingBadge.className = 'text-[9px] font-mono-tech px-1 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/20';
+      } else {
+        elPingBadge.textContent = 'ELEVATED';
+        elPingBadge.className = 'text-[9px] font-mono-tech px-1 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20';
+      }
+
+      elDown.textContent = state.down.toFixed(2);
+      elDownDelta.textContent = `${downPct >= 0 ? '+' : ''}${downPct}%`;
+      elDownDelta.className = `text-[9px] font-mono-tech ${downPct >= 0 ? 'text-emerald-400' : 'text-slate-400'}`;
+
+      elUp.textContent = state.up.toFixed(2);
+      elUpDelta.textContent = `${upPct >= 0 ? '+' : ''}${upPct}%`;
+      elUpDelta.className = `text-[9px] font-mono-tech ${upPct >= 0 ? 'text-cyan-400' : 'text-slate-400'}`;
+    }
+
+    function setAttackProgress(pct, label) {
+      state.attackProgress = pct;
+      elGaugeAtkProgress.style.width = `${pct}%`;
+      elAtkProgressPct.textContent = `${pct}%`;
+      elAtkProgressLabel.textContent = label;
+    }
+
+    function setDefenseProgress(pct, label) {
+      state.defenseProgress = pct;
+      elGaugeDefProgress.style.width = `${pct}%`;
+      elDefProgressPct.textContent = `${pct}%`;
+      elDefProgressLabel.textContent = label;
+    }
+
+    // ================= ATTACK & DEFENSE EXECUTION =================
+    let activeAttackTimer = null;
+    function launchFocusedAttack(target, vector, isCounter = false) {
+      if (!isCounter && activeAttackTimer) {
+        clearInterval(activeAttackTimer);
+        activeAttackTimer = null;
+      }
+
+      if (isCounter) {
+        if (state.manualAttackActive) return;
+        emitAttackLog(target, vector, true, 'COUNTER-COMPLETE', `逆探知セッション完了 // 対象ノードへカウンター負荷を適用`);
+        return;
+      }
+
+      const { atkMult, atkCount } = getClusterMetrics();
+      const stepDelay = Math.max(200, Math.round(700 / atkMult));
+      const atkNodes = state.nodes.filter((n) => n.role === 'attack');
+      const nodeLabel = atkNodes.length > 0 ? atkNodes[0].name : 'SHARED-FALLBACK';
+
+      state.manualAttackActive = true;
+      let step = 0;
+      const stages = [
+        { pct: 25, label: `偵察スキャン中 (${atkCount}台): ${target}`, badge: 'RECONNAISSANCE', msg: `[${nodeLabel}] ポートマッピング及びTLSハンドシェイク解析を実行中` },
+        { pct: 55, label: `ペイロード注入中 (${atkCount}台): ${target}`, badge: 'PAYLOAD SENT', msg: `[${nodeLabel}] 暗号化パケット (${Math.floor(Math.random() * 900 + 250)} MB) を高速送信中` },
+        { pct: 85, label: `脆弱性突破中 (${atkCount}台): ${target}`, badge: 'PENETRATING', msg: `[${nodeLabel}] 認証レイヤーの応答遅延を検知 // セッション奪取シーケンス実行` },
+        { pct: 100, label: `攻撃完了: ${target}`, badge: 'BREACH COMPLETE', msg: `[${nodeLabel}] ターゲット制御権シグネチャを確認 (Signal: 0x${Math.floor(Math.random()*9000+1000)})` }
+      ];
+
+      const runStep = () => {
+        const s = stages[step];
+        setAttackProgress(s.pct, s.label);
+        emitAttackLog(target, vector, false, s.badge, s.msg);
+        step += 1;
+        if (step >= stages.length) {
+          clearInterval(activeAttackTimer);
+          activeAttackTimer = null;
+          setTimeout(() => {
+            if (!state.autoAttack) {
+              state.manualAttackActive = false;
+            }
+          }, 1000);
+        }
+      };
+
+      runStep();
+      activeAttackTimer = setInterval(runStep, stepDelay);
+    }
+
+    function emitAttackLog(target, vector, isCounter, badgeText, msg) {
+      state.attackSentCount += 1;
+      elStatAttackSent.textContent = state.attackSentCount;
+
+      let badgeCls = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+      if (badgeText === 'PENETRATING' || badgeText === 'RECONNAISSANCE') {
+        badgeCls = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+      } else if (badgeText === 'BREACH COMPLETE') {
+        badgeCls = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+      }
+
+      const badgePrefix = isCounter
+        ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono-tech font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">AUTO-COUNTER</span>`
+        : `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono-tech font-semibold ${badgeCls} border">${badgeText}</span>`;
+
+      const html = `
+        <div class="log-entry rounded-lg bg-slate-900/90 border ${isCounter ? 'border-amber-500/30' : 'border-slate-800/90'} p-2.5 hover:border-slate-700 transition-colors">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <div class="flex items-center gap-1.5">
+              ${badgePrefix}
+              <span class="text-[10px] font-mono-tech text-slate-400">${escapeHtml(vector)}</span>
+            </div>
+            <span class="text-[10px] font-mono-tech text-slate-500">${nowTime()}</span>
+          </div>
+          <div class="font-mono-tech text-[11px] text-rose-300 break-all mb-0.5">TARGET &rarr; ${escapeHtml(target)}</div>
+          <p class="text-[11px] text-slate-400">${msg}</p>
+        </div>
+      `;
+      appendLog(elAttackList, html);
+    }
+
+    function runDefenseCycle() {
+      if (!state.inboundSim) return;
+
+      const { defMult } = getClusterMetrics();
+      const stepDelay = Math.max(120, Math.round(350 / defMult));
+      const attacker = pickAttacker();
+      const isIdentified = Math.random() < 0.78;
+
+      setDefenseProgress(35, `不審パケット検知: ${attacker.addr}`);
+
+      setTimeout(() => {
+        if (!state.inboundSim) return;
+        state.defenseBlockedCount += 1;
+        elStatDefBlocked.textContent = state.defenseBlockedCount;
+
+        let defenseActionHtml = '';
+        if (state.lockdownMode) {
+          setDefenseProgress(100, `ロックダウン遮断完了: ${attacker.addr}`);
+          defenseActionHtml = `
+            <div class="mt-1.5 px-2 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-[11px] text-rose-200 flex items-center gap-1.5">
+              <span class="font-mono-tech text-[9px] px-1 py-0.5 rounded bg-rose-500/25 text-rose-200 font-semibold">LOCKDOWN DROP</span>
+              <span>緊急ロックダウンにより全接続を強制破棄</span>
+            </div>
+          `;
+        } else if (state.decoyActive && state.decoyTarget) {
+          setDefenseProgress(80, `身代わり転送中: ${state.decoyTarget}`);
+          defenseActionHtml = `
+            <div class="mt-1.5 px-2 py-1 rounded-md bg-violet-500/10 border border-violet-500/25 text-[11px] text-violet-200 flex items-center gap-1.5">
+              <span class="font-mono-tech text-[9px] px-1 py-0.5 rounded bg-violet-500/25 text-violet-200 font-semibold">DECOY REDIRECT</span>
+              <span class="truncate">身代わり先 <strong class="font-mono-tech text-violet-300">${escapeHtml(state.decoyTarget)}</strong> へ転送し無力化</span>
+            </div>
+          `;
+        } else {
+          setDefenseProgress(75, `WAF遮断完了: ${attacker.addr}`);
+          defenseActionHtml = `
+            <div class="mt-1.5 px-2 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/25 text-[11px] text-cyan-200 flex items-center gap-1.5">
+              <span class="font-mono-tech text-[9px] px-1 py-0.5 rounded bg-cyan-500/25 text-cyan-200 font-semibold">MITIGATED</span>
+              <span>WAF / パケットフィルタにより自動遮断完了</span>
+            </div>
+          `;
+        }
+
+        let counterHtml = '';
+        if (isIdentified) {
+          if (state.autoCounter) {
+            setTimeout(() => setDefenseProgress(100, `迎撃 & 反撃完了 (${attacker.addr})`), Math.round(220 / defMult));
+            counterHtml = `
+              <div class="mt-1 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-200 flex items-center justify-between gap-2">
+                <span><strong class="font-mono-tech text-[9px] px-1 py-0.5 rounded bg-amber-500/25 text-amber-200 mr-1">COUNTER-STRIKE</strong>発信元を特定 &rarr; 逆探知攻撃を実行</span>
+                <span class="font-mono-tech text-[9px] text-amber-300">DONE</span>
+              </div>
+            `;
+            state.defenseCounterCount += 1;
+            elStatDefCounter.textContent = state.defenseCounterCount;
+            setTimeout(() => {
+              launchFocusedAttack(attacker.addr, 'COUNTER-PULSE', true);
+            }, stepDelay);
+          } else {
+            setDefenseProgress(100, `防御完了 (反撃待機)`);
+            counterHtml = `
+              <div class="mt-1 text-[10px] text-slate-400 font-mono-tech">
+                発信元特定 (${attacker.origin}) — 自動反撃OFFのため待機中
+              </div>
+            `;
+          }
+        } else {
+          setDefenseProgress(100, `防御完了 (発信元偽装)`);
+          counterHtml = `
+            <div class="mt-1 text-[10px] text-slate-500 font-mono-tech">
+              発信元が多重偽装 (SPOOFED) されているため反撃スキップ
+            </div>
+          `;
+        }
+
+        const html = `
+          <div class="log-entry rounded-lg bg-slate-900/90 border border-slate-800/90 p-2.5 hover:border-slate-700 transition-colors">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+              <div class="flex items-center gap-1.5">
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono-tech font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/25">INTRUSION DETECTED</span>
+                <span class="text-[10px] font-mono-tech text-slate-400">${escapeHtml(attacker.vector)}</span>
+              </div>
+              <span class="text-[10px] font-mono-tech text-slate-500">${nowTime()}</span>
+            </div>
+            <div class="font-mono-tech text-[11px] text-slate-200 break-all">
+              SOURCE &larr; <span class="text-cyan-300">${escapeHtml(attacker.addr)}</span> <span class="text-slate-500">[${attacker.origin}]</span>
+            </div>
+            ${defenseActionHtml}
+            ${counterHtml}
+          </div>
+        `;
+        appendLog(elDefenseList, html);
+      }, stepDelay);
+    }
+
+    // ================= EVENT LISTENERS =================
+    elAttackForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const target = elAttackInput.value.trim();
+      if (!isValidTarget(target)) {
+        showToast('有効なURLまたはIPアドレスを入力してください', 'error');
+        elAttackInput.focus();
+        return;
+      }
+      state.currentAttackTarget = target;
+      state.currentAttackVector = elAttackVector.value;
+      launchFocusedAttack(target, elAttackVector.value, false);
+      showToast(`${target} を中心に攻撃シーケンスを開始しました`, 'info');
+    });
+
+    document.querySelectorAll('.preset-attack').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        elAttackInput.value = btn.dataset.target;
+        elAttackInput.focus();
+      });
+    });
+
+    elToggleAutoAttack.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        const target = elAttackInput.value.trim();
+        if (!isValidTarget(target)) {
+          e.target.checked = false;
+          showToast('継続攻撃を開始するにはターゲットURL/IPを入力してください', 'warn');
+          elAttackInput.focus();
+          return;
+        }
+        state.currentAttackTarget = target;
+        state.currentAttackVector = elAttackVector.value;
+        state.autoAttack = true;
+        state.manualAttackActive = true;
+        launchFocusedAttack(target, elAttackVector.value, false);
+        showToast(`${target} への継続攻撃モードを有効化しました`, 'info');
+      } else {
+        state.autoAttack = false;
+        state.manualAttackActive = false;
+        showToast('継続攻撃モードを停止しました', 'info');
+      }
+    });
+
+    elDecoyForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (state.decoyActive) {
+        state.decoyActive = false;
+        state.decoyTarget = '';
+        applyDecoyUI();
+        saveConfigToBrowser();
+
+        appendLog(elDefenseList, `
+          <div class="log-entry rounded-lg bg-slate-900/70 border border-slate-700/70 p-2.5">
+            <div class="flex items-center justify-between text-[10px] font-mono-tech text-slate-400">
+              <span>SYSTEM // DECOY DISABLED</span>
+              <span>${nowTime()}</span>
+            </div>
+            <p class="text-[11px] text-slate-300 mt-0.5">身代わり防御を解除し、通常のダイレクト防御モードへ復帰しました。</p>
+          </div>
+        `);
+        showToast('身代わり防御を解除しました', 'info');
+        return;
+      }
+
+      const decoyVal = elDecoyInput.value.trim();
+      if (!isValidTarget(decoyVal)) {
+        showToast('身代わりにする有効なURLまたはIPを入力してください', 'error');
+        elDecoyInput.focus();
+        return;
+      }
+
+      state.decoyActive = true;
+      state.decoyTarget = decoyVal;
+      applyDecoyUI();
+      saveConfigToBrowser();
+
+      setDefenseProgress(100, `身代わりノード展開完了: ${decoyVal}`);
+      appendLog(elDefenseList, `
+        <div class="log-entry rounded-lg bg-violet-950/30 border border-violet-500/40 p-2.5">
+          <div class="flex items-center justify-between text-[10px] font-mono-tech text-violet-300">
+            <span>SYSTEM // DECOY ENGAGED</span>
+            <span>${nowTime()}</span>
+          </div>
+          <p class="text-[11px] text-violet-200 mt-0.5">身代わりノード <strong class="font-mono-tech">${escapeHtml(decoyVal)}</strong> を中心防御に設定しました。以降の攻撃はすべて転送されます。</p>
+        </div>
+      `);
+      showToast(`身代わり防御 (${decoyVal}) を有効化しました`, 'violet');
+    });
+
+    elToggleAutoCounter.addEventListener('change', (e) => {
+      state.autoCounter = e.target.checked;
+      saveConfigToBrowser();
+      showToast(state.autoCounter ? '自動反撃を有効にしました' : '自動反撃を停止しました', 'info');
+    });
+
+    elToggleInboundSim.addEventListener('change', (e) => {
+      state.inboundSim = e.target.checked;
+      saveConfigToBrowser();
+      showToast(state.inboundSim ? '自動監視・防衛を再開しました' : '自動監視を一時停止しました', 'info');
+    });
+
+    document.getElementById('btn-clear-attack').addEventListener('click', () => {
+      elAttackList.innerHTML = '';
+      setAttackProgress(0, '攻撃シーケンス待機中...');
+      showToast('攻撃ログをクリアしました', 'info');
+    });
+
+    document.getElementById('btn-clear-defense').addEventListener('click', () => {
+      elDefenseList.innerHTML = '';
+      setDefenseProgress(0, '迎撃シーケンス待機中...');
+      showToast('防御ログをクリアしました', 'info');
+    });
+
+    document.getElementById('btn-open-server-modal').addEventListener('click', () => {
+      renderServerNodes();
+      elServerModal.classList.remove('hidden');
+      elServerModal.classList.add('flex');
+    });
+
+    document.getElementById('btn-close-server-modal').addEventListener('click', () => {
+      elServerModal.classList.add('hidden');
+      elServerModal.classList.remove('flex');
+    });
+
+    elServerModal.addEventListener('click', (e) => {
+      if (e.target === elServerModal) {
+        elServerModal.classList.add('hidden');
+        elServerModal.classList.remove('flex');
+      }
+    });
+
+    elToggleLockdown.addEventListener('change', (e) => {
+      state.lockdownMode = e.target.checked;
+      applyLockdownUI();
+      saveConfigToBrowser();
+      showToast(state.lockdownMode ? '緊急ロックダウンモードを有効化しました' : '通常オンラインモードへ復帰しました', state.lockdownMode ? 'error' : 'info');
+    });
+
+    document.getElementById('btn-srv-harden').addEventListener('click', () => {
+      setDefenseProgress(100, 'FWルール最適化完了');
+      appendLog(elDefenseList, `
+        <div class="log-entry rounded-lg bg-cyan-950/30 border border-cyan-500/40 p-2.5">
+          <div class="flex items-center justify-between text-[10px] font-mono-tech text-cyan-300">
+            <span>SERVER ADMIN // FW HARDENED</span>
+            <span>${nowTime()}</span>
+          </div>
+          <p class="text-[11px] text-cyan-200 mt-0.5">全クラスター筐体のエッジファイアウォール及びレート制限ルールを最新化しました。</p>
+        </div>
+      `);
+      showToast('ファイアウォールルールを最適化しました', 'info');
+    });
+
+    document.getElementById('btn-srv-purge').addEventListener('click', () => {
+      elDefenseList.innerHTML = '';
+      elAttackList.innerHTML = '';
+      setDefenseProgress(0, '迎撃シーケンス待機中...');
+      setAttackProgress(0, '攻撃シーケンス待機中...');
+      showToast('サーバーログと一時キャッシュを消去しました', 'info');
+    });
+
+    document.getElementById('btn-srv-reboot').addEventListener('click', () => {
+      elServerStatusBadge.innerHTML = `<span class="relative w-1.5 h-1.5 rounded-full bg-amber-400 live-dot"></span>REBOOTING`;
+      elServerStatusBadge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30';
+      showToast('全サーバーノードを再起動しています...', 'warn');
+      elServerModal.classList.add('hidden');
+      elServerModal.classList.remove('flex');
+      setTimeout(() => {
+        state.ping = 1.4;
+        state.down = 9.78;
+        state.up = 9.12;
+        updateTelemetry();
+        applyLockdownUI();
+        showToast('全ノード再起動が完了しました (10GbE リンクアップ)', 'info');
+      }, 1500);
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadConfigFromBrowser();
+      populateAddNodeSelects();
+      elToggleAutoCounter.checked = state.autoCounter;
+      elToggleInboundSim.checked = state.inboundSim;
+      elToggleLockdown.checked = state.lockdownMode;
+      applyLockdownUI();
+      applyDecoyUI();
+      renderServerNodes();
+
+      runDefenseCycle();
+      setTimeout(runDefenseCycle, 900);
+
+      setInterval(updateTelemetry, 1800);
+
+      function scheduleDefenseLoop() {
+        const { defMult } = getClusterMetrics();
+        const interval = Math.max(1400, Math.round(3600 / defMult));
+        setTimeout(() => {
+          runDefenseCycle();
+          scheduleDefenseLoop();
+        }, interval);
+      }
+      scheduleDefenseLoop();
+
+      function scheduleAttackLoop() {
+        const { atkMult } = getClusterMetrics();
+        const interval = Math.max(1300, Math.round(3200 / atkMult));
+        setTimeout(() => {
+          if (state.autoAttack && state.currentAttackTarget && !activeAttackTimer) {
+            launchFocusedAttack(state.currentAttackTarget, state.currentAttackVector, false);
+          }
+          scheduleAttackLoop();
+        }, interval);
+      }
+      scheduleAttackLoop();
+    });
+  </script>
+</body>
+</html>
